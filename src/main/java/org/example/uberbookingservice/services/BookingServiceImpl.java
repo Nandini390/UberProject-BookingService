@@ -46,7 +46,7 @@ public class BookingServiceImpl implements BookingService{
 
         //make an api call to location service to fetch nearby drivers
         NearbyDriverDto request= NearbyDriverDto.builder()
-                .lattitude(bookingDetails.getStartLocation().getLattitude())
+                .latitude(bookingDetails.getStartLocation().getLatitude())
                 .longitude(bookingDetails.getStartLocation().getLongitude())
                 .build();
         ResponseEntity<DriverLocationDto[]> result = restTemplate.postForEntity(LOCATION_SERVICE+"/api/location/nearby/drivers",request, DriverLocationDto[].class);
@@ -54,7 +54,7 @@ public class BookingServiceImpl implements BookingService{
         if(result.getStatusCode().is2xxSuccessful() && result.getBody()!=null){
             List<DriverLocationDto> driverLocations = Arrays.asList(result.getBody());
             driverLocations.forEach(driverLocationDto -> {
-                System.out.println(driverLocationDto.getDriverId() + " " + "lat: " + driverLocationDto.getLattitude()+ " " + "long: " + driverLocationDto.getLongitude());
+                System.out.println(driverLocationDto.getDriverId() + " " + "lat: " + driverLocationDto.getLatitude()+ " " + "long: " + driverLocationDto.getLongitude());
             });
         }
 
