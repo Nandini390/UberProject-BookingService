@@ -1,6 +1,7 @@
 package org.example.uberbookingservice.services;
 
 import org.example.uberbookingservice.Apis.LocationServiceApi;
+import org.example.uberbookingservice.Apis.UberSocketApi;
 import org.example.uberbookingservice.dto.*;
 import org.example.uberbookingservice.repositories.BookingRepository;
 import org.example.uberbookingservice.repositories.DriverRepository;
@@ -27,14 +28,16 @@ public class BookingServiceImpl implements BookingService{
     private final BookingRepository bookingRepository;
     private final DriverRepository driverRepository;
     private final LocationServiceApi locationServiceApi;
+    private final UberSocketApi uberSocketApi;
 
 
     public BookingServiceImpl(PassengerRepository passengerRepository,
-                              BookingRepository bookingRepository, DriverRepository driverRepository, LocationServiceApi locationServiceApi){
+                              BookingRepository bookingRepository, DriverRepository driverRepository, LocationServiceApi locationServiceApi, UberSocketApi uberSocketApi){
         this.passengerRepository=passengerRepository;
         this.bookingRepository = bookingRepository;
         this.driverRepository=driverRepository;
         this.locationServiceApi=locationServiceApi;
+        this.uberSocketApi=uberSocketApi;
     }
 
     @Override
@@ -51,7 +54,7 @@ public class BookingServiceImpl implements BookingService{
                 .latitude(bookingDetails.getStartLocation().getLatitude())
                 .longitude(bookingDetails.getStartLocation().getLongitude())
                 .build();
-        processNearbyDriverAsync(request);
+        processNearbyDriverAsync(request,bookingDetails.getPassengerId());
 
         return CreateBookingResponseDto.builder()
                 .bookingId(newBooking.getId())
@@ -60,7 +63,7 @@ public class BookingServiceImpl implements BookingService{
     }
 
 
-    private void processNearbyDriverAsync(NearbyDriverDto requestDto){
+    private void processNearbyDriverAsync(NearbyDriverDto requestDto, Long passengerId){
         Call<DriverLocationDto[]> call= locationServiceApi.getNearbyDrivers(requestDto);
         call.enqueue(new Callback<DriverLocationDto[]>() {
             @Override
@@ -70,6 +73,7 @@ public class BookingServiceImpl implements BookingService{
                   driverLocations.forEach(driverLocationDto -> {
                   System.out.println(driverLocationDto.getDriverId() + " " + "lat: " + driverLocationDto.getLatitude()+ " " + "long: " + driverLocationDto.getLongitude());
                 });
+                  raiseRideRequestAsync(RideRequestDto.builder().passengerId(passengerId).build());
             }else{
                     System.out.println("Request failed"+response.message());
                 }
@@ -93,5 +97,24 @@ public class BookingServiceImpl implements BookingService{
                     .bookingStatus(booking.get().getBookingStatus())
                     .driver(Optional.ofNullable(booking.get().getDriver()))
                     .build();
+    }
+
+    private void raiseRideRequestAsync(RideRequestDto requestDto){
+        Call<Boolean> call=uberSocketApi.getNearbyDrivers(requestDto);
+        call.enqueue(new Callback<Boolean>() {
+            @Override
+            public void onResponse(Call<Boolean> call, Response<Boolean> response) {
+                if(response.isSuccessful() && response.body()!=null){
+                    Boolean result= response.body();
+                    System.out.println("Driver response is: "+result.toString());
+                }else{
+                    System.out.println("Request for ride failed: "+response.message());
+                }
+            }
+            @Override
+            public void onFailure(Call<Boolean> call, Throwable t) {
+                 t.printStackTrace();
+            }
+        });
     }
 }
