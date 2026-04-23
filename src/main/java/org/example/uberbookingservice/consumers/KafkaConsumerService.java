@@ -5,8 +5,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class KafkaConsumerService {
-    @KafkaListener(topics = "sample-topic")
+    @KafkaListener(topics = "driver.lifecycle")
     public void listen(String message){
-        System.out.println("kafka msg from topic sample-topic inside booking service: " + message);
+        System.out.println("kafka msg from topic driver.lifecycle inside booking service: " + message);
     }
 }

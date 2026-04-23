@@ -1,4 +1,4 @@
-package org.example.uberbookingservice.services;
+package org.example.uberbookingservice.services.Impl;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;

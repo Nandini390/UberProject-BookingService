@@ -1,9 +1,9 @@
 package org.example.uberbookingservice.dto;
 
+import jakarta.validation.constraints.Size;
 import lombok.*;
-import org.example.uberprojectentityservice.Models.BookingStatus;
 
-import java.util.Optional;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -12,5 +12,7 @@ import java.util.Optional;
 @NoArgsConstructor
 public class UpdateBookingRequestDto {
     private String bookingStatus;
-    private Optional<Long> driverId;
+    private UUID driverId;
+    @Size(max = 255, message = "cancellationReason must be at most 255 characters")
+    private String cancellationReason;
 }

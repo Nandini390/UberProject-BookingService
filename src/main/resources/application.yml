@@ -18,7 +18,7 @@ spring:
     password: ${mysql_password}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
-    jpa:
+  jpa:
       hibernate:
         ddl-auto: update
       show-sql: true
@@ -27,7 +27,7 @@ spring:
           dialect: org.hibernate.dialect.MySQLDialect
           enable_lazy_load_no_trans: true
 
-    jackson:
+  jackson:
       serialization:
         FAIL_ON_EMPTY_BEANS: false
 
@@ -38,4 +38,3 @@ eureka:
       defaultZone: http://localhost:8761/eureka
   instance:
     prefer-ip-address: true
-

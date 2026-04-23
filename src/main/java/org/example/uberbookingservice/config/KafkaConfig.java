@@ -19,8 +19,18 @@ import java.util.Map;
 public class KafkaConfig {
 
     @Bean
-    public NewTopic sampleTopic(){
-        return new NewTopic("sample-topic",1,(short) 1);
+    public NewTopic bookingLifecycleTopic(){
+        return new NewTopic("booking.lifecycle",1,(short) 1);
+    }
+
+    @Bean
+    public NewTopic driverLifecycleTopic(){
+        return new NewTopic("driver.lifecycle",1,(short) 1);
+    }
+
+    @Bean
+    public NewTopic paymentLifecycleTopic(){
+        return new NewTopic("payment.lifecycle",1,(short) 1);
     }
 
     @Bean
@@ -51,7 +61,7 @@ public class KafkaConfig {
                 "localhost:9092");
         props.put(
                 ConsumerConfig.GROUP_ID_CONFIG,
-                "sample-group-2");
+                "booking-lifecycle-group");
         props.put(
                 ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
                 StringDeserializer.class);

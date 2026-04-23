@@ -9,10 +9,22 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface BookingRepository extends JpaRepository<Booking,Long> {
+import java.util.UUID;
+import java.util.List;
+
+public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
   @Modifying
   @Transactional
   @Query("UPDATE Booking b set b.bookingStatus= :status, b.driver= :driver WHERE b.id= :id")
-  void updateBookingStatusAndDriverById(@Param("id") Long id, @Param("status") BookingStatus status, @Param("driver") Driver driver);
+  int updateBookingStatusAndDriverById(@Param("id") UUID id, @Param("status") BookingStatus status, @Param("driver") Driver driver);
+
+  @Modifying
+  @Transactional
+  @Query("UPDATE Booking b set b.bookingStatus= :status WHERE b.id= :id")
+  int updateBookingStatusById(@Param("id") UUID id, @Param("status") BookingStatus status);
+
+  List<Booking> findAllByPassengerIdOrderByCreatedAtDesc(UUID passengerId);
+
+  List<Booking> findAllByDriverIdOrderByCreatedAtDesc(UUID driverId);
 }
