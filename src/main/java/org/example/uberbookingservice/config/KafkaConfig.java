@@ -34,6 +34,11 @@ public class KafkaConfig {
     }
 
     @Bean
+    public NewTopic notificationLifecycleTopic(){
+        return new NewTopic("notification.lifecycle",1,(short) 1);
+    }
+
+    @Bean
     public ProducerFactory<String, String> producerFactory() {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(

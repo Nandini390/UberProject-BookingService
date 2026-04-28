@@ -23,7 +23,9 @@ public class UpdateBookingResponseDto {
     private ExactLocation startLocation;
     private ExactLocation endLocation;
     private Long totalDistanceMeters;
+    private Long actualDistanceMeters;
     private Double estimatedFare;
+    private Double finalFare;
     private Double cancellationCharge;
     private PaymentStatus paymentStatus;
     private LocalDateTime startTime;

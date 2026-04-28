@@ -3,6 +3,7 @@ package org.example.uberbookingservice.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.uberbookingservice.dto.AuthorizePaymentRequestDto;
+import org.example.uberbookingservice.dto.PaymentReconciliationRequestDto;
 import org.example.uberbookingservice.dto.PaymentResponseDto;
 import org.example.uberbookingservice.dto.RefundPaymentRequestDto;
 import org.example.uberbookingservice.services.Impl.IdempotencyService;
@@ -41,7 +42,7 @@ public class PaymentController {
         return idempotencyService.execute(
                 "PAYMENT_CAPTURE_" + bookingId,
                 idempotencyKey,
-                () -> ResponseEntity.ok(paymentService.capturePayment(bookingId)),
+                () -> ResponseEntity.ok(paymentService.capturePayment(bookingId, null, null)),
                 PaymentResponseDto.class
         );
     }
@@ -64,5 +65,11 @@ public class PaymentController {
     @GetMapping("/booking/{bookingId}")
     public ResponseEntity<PaymentResponseDto> getPayment(@PathVariable UUID bookingId) {
         return ResponseEntity.ok(paymentService.getPayment(bookingId));
+    }
+
+    @PostMapping("/booking/{bookingId}/reconcile")
+    public ResponseEntity<PaymentResponseDto> reconcilePayment(@PathVariable UUID bookingId,
+                                                               @Valid @RequestBody PaymentReconciliationRequestDto requestDto) {
+        return ResponseEntity.ok(paymentService.reconcilePayment(bookingId, requestDto));
     }
 }

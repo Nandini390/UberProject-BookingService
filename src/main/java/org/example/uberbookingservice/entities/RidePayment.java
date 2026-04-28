@@ -3,6 +3,7 @@ package org.example.uberbookingservice.entities;
 import jakarta.persistence.*;
 import lombok.*;
 import org.example.uberbookingservice.payments.PaymentMethod;
+import org.example.uberbookingservice.payments.PaymentReconciliationStatus;
 import org.example.uberbookingservice.payments.PaymentStatus;
 
 import java.time.LocalDateTime;
@@ -27,6 +28,9 @@ public class RidePayment {
     @Column(nullable = false)
     private Double amount;
 
+    @Column(name = "actual_distance_meters")
+    private Long actualDistanceMeters;
+
     @Column(nullable = false, length = 10)
     private String currency;
 
@@ -41,8 +45,18 @@ public class RidePayment {
     @Column(length = 100)
     private String providerReference;
 
+    @Column(length = 50)
+    private String providerName;
+
+    @Column(length = 100)
+    private String gatewayTransactionId;
+
     @Column(length = 255)
     private String failureReason;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private PaymentReconciliationStatus reconciliationStatus;
 
     private LocalDateTime authorizedAt;
     private LocalDateTime capturedAt;

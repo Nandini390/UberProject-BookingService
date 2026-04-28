@@ -21,4 +21,10 @@ public class AuthorizePaymentRequestDto {
 
     @Size(max = 10, message = "currency must be at most 10 characters")
     private String currency;
+
+    @Size(max = 50, message = "providerName must be at most 50 characters")
+    private String providerName;
+
+    @Size(max = 100, message = "externalReference must be at most 100 characters")
+    private String externalReference;
 }

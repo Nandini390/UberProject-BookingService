@@ -4,6 +4,11 @@ import jakarta.validation.Valid;
 import org.example.uberbookingservice.dto.CreateBookingDto;
 import org.example.uberbookingservice.dto.CreateBookingResponseDto;
 import org.example.uberbookingservice.dto.BookingAuditLogDto;
+import org.example.uberbookingservice.dto.BookingTrackingResponseDto;
+import org.example.uberbookingservice.dto.AdminBookingReportDto;
+import org.example.uberbookingservice.dto.DriverDecisionRequestDto;
+import org.example.uberbookingservice.dto.NotificationDto;
+import org.example.uberbookingservice.dto.PagedResponseDto;
 import org.example.uberbookingservice.dto.TripOtpResponseDto;
 import org.example.uberbookingservice.dto.UpdateBookingResponseDto;
 import org.example.uberbookingservice.dto.UpdateBookingRequestDto;
@@ -11,11 +16,14 @@ import org.example.uberbookingservice.dto.VerifyTripOtpRequestDto;
 import org.example.uberbookingservice.services.BookingService;
 import org.example.uberbookingservice.services.Impl.IdempotencyService;
 import org.example.uberbookingservice.services.Impl.WebhookService;
+import org.example.uberprojectentityservice.Models.BookingStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +64,11 @@ public class BookingController {
       return new ResponseEntity<>(bookingService.assignDriver(bookingId, requestDto),HttpStatus.OK);
     }
 
+    @PostMapping("{bookingId}/reject-driver")
+    public ResponseEntity<UpdateBookingResponseDto> rejectDriver(@Valid @RequestBody DriverDecisionRequestDto requestDto, @PathVariable UUID bookingId) {
+        return ResponseEntity.ok(bookingService.rejectDriver(bookingId, requestDto));
+    }
+
     @PostMapping("{bookingId}/arrived")
     public ResponseEntity<UpdateBookingResponseDto> markCabArrived(@PathVariable UUID bookingId){
         return new ResponseEntity<>(bookingService.markCabArrived(bookingId), HttpStatus.OK);
@@ -91,13 +104,60 @@ public class BookingController {
         return new ResponseEntity<>(bookingService.getBookingsByPassenger(passengerId), HttpStatus.OK);
     }
 
+    @GetMapping("/passenger/{passengerId}/history")
+    public ResponseEntity<PagedResponseDto<UpdateBookingResponseDto>> getPassengerBookingHistory(
+            @PathVariable UUID passengerId,
+            @RequestParam(required = false) BookingStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(bookingService.getPassengerBookingHistory(passengerId, status, page, size));
+    }
+
     @GetMapping("/driver/{driverId}")
     public ResponseEntity<List<UpdateBookingResponseDto>> getBookingsByDriver(@PathVariable UUID driverId) {
         return new ResponseEntity<>(bookingService.getBookingsByDriver(driverId), HttpStatus.OK);
     }
 
+    @GetMapping("/driver/{driverId}/history")
+    public ResponseEntity<PagedResponseDto<UpdateBookingResponseDto>> getDriverBookingHistory(
+            @PathVariable UUID driverId,
+            @RequestParam(required = false) BookingStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(bookingService.getDriverBookingHistory(driverId, status, page, size));
+    }
+
     @GetMapping("{bookingId}/audit")
     public ResponseEntity<List<BookingAuditLogDto>> getAuditTrail(@PathVariable UUID bookingId) {
         return ResponseEntity.ok(bookingService.getAuditTrail(bookingId));
+    }
+
+    @GetMapping("{bookingId}/tracking")
+    public ResponseEntity<BookingTrackingResponseDto> getLiveTracking(@PathVariable UUID bookingId) {
+        return ResponseEntity.ok(bookingService.getLiveTracking(bookingId));
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<PagedResponseDto<UpdateBookingResponseDto>> searchBookings(
+            @RequestParam(required = false) UUID passengerId,
+            @RequestParam(required = false) UUID driverId,
+            @RequestParam(required = false) BookingStatus status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(bookingService.searchBookings(passengerId, driverId, status, from, to, page, size));
+    }
+
+    @GetMapping("/admin/report")
+    public ResponseEntity<AdminBookingReportDto> getAdminReport(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
+        return ResponseEntity.ok(bookingService.getAdminReport(from, to));
+    }
+
+    @GetMapping("/notifications/{recipientId}")
+    public ResponseEntity<List<NotificationDto>> getNotifications(@PathVariable UUID recipientId) {
+        return ResponseEntity.ok(bookingService.getNotifications(recipientId));
     }
 }

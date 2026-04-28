@@ -15,4 +15,5 @@ public class UpdateBookingRequestDto {
     private UUID driverId;
     @Size(max = 255, message = "cancellationReason must be at most 255 characters")
     private String cancellationReason;
+    private CancelActorType cancelledBy;
 }

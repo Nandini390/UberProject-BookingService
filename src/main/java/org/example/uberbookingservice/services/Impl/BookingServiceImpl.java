@@ -5,14 +5,18 @@ import org.example.uberbookingservice.Apis.UberSocketApi;
 import org.example.uberbookingservice.dto.*;
 import org.example.uberbookingservice.events.BookingLifecycleEvent;
 import org.example.uberbookingservice.payments.PaymentStatus;
+import org.example.uberbookingservice.repositories.BookingDispatchRepository;
 import org.example.uberbookingservice.repositories.BookingRepository;
 import org.example.uberbookingservice.repositories.DriverRepository;
 import org.example.uberbookingservice.repositories.PassengerRepository;
 import org.example.uberbookingservice.repositories.RidePaymentRepository;
 import org.example.uberbookingservice.services.BookingService;
+import org.example.uberbookingservice.services.NotificationService;
 import org.example.uberbookingservice.services.PaymentService;
 import org.example.uberprojectentityservice.Models.*;
 import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -44,10 +48,13 @@ public class BookingServiceImpl implements BookingService {
     private final RidePaymentRepository ridePaymentRepository;
     private final BookingAuditService bookingAuditService;
     private final TripOtpService tripOtpService;
+    private final BookingDispatchService bookingDispatchService;
+    private final BookingDispatchRepository bookingDispatchRepository;
+    private final NotificationService notificationService;
 
 
     public BookingServiceImpl(PassengerRepository passengerRepository,
-                              BookingRepository bookingRepository, DriverRepository driverRepository, LocationServiceApi locationServiceApi, UberSocketApi uberSocketApi, KafkaProducerService kafkaProducerService, PaymentService paymentService, RidePaymentRepository ridePaymentRepository, BookingAuditService bookingAuditService, TripOtpService tripOtpService){
+                              BookingRepository bookingRepository, DriverRepository driverRepository, LocationServiceApi locationServiceApi, UberSocketApi uberSocketApi, KafkaProducerService kafkaProducerService, PaymentService paymentService, RidePaymentRepository ridePaymentRepository, BookingAuditService bookingAuditService, TripOtpService tripOtpService, BookingDispatchService bookingDispatchService, BookingDispatchRepository bookingDispatchRepository, NotificationService notificationService){
         this.passengerRepository=passengerRepository;
         this.bookingRepository = bookingRepository;
         this.driverRepository=driverRepository;
@@ -58,6 +65,9 @@ public class BookingServiceImpl implements BookingService {
         this.ridePaymentRepository = ridePaymentRepository;
         this.bookingAuditService = bookingAuditService;
         this.tripOtpService = tripOtpService;
+        this.bookingDispatchService = bookingDispatchService;
+        this.bookingDispatchRepository = bookingDispatchRepository;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -125,16 +135,17 @@ public class BookingServiceImpl implements BookingService {
                           Booking cancelledBooking = getBookingEntity(bookingId);
                           publishEvent(cancelledBooking, "NO_DRIVER_AVAILABLE", "No eligible drivers were available nearby");
                           audit(cancelledBooking.getId(), "NO_DRIVER_AVAILABLE", "No eligible drivers found nearby", "SYSTEM", null);
+                          notifyPassenger(cancelledBooking, "NO_DRIVER_AVAILABLE", "No drivers available", "No eligible drivers were available nearby.");
                           return;
                       }
 
-                      raiseRideRequestAsync(RideRequestDto.builder()
-                              .passengerId(passengerId)
-                              .bookingId(bookingId)
-                              .startLocation(startLocation)
-                              .endLocation(endLocation)
-                              .driverIds(eligibleDriverIds)
-                              .build());
+                      bookingDispatchService.startDispatch(
+                              getBookingEntity(bookingId),
+                              passengerId,
+                              startLocation,
+                              endLocation,
+                              eligibleDriverIds
+                      );
                   } catch (Exception e) {
                       throw new RuntimeException(e);
                   }
@@ -172,14 +183,19 @@ public class BookingServiceImpl implements BookingService {
             if (!Boolean.TRUE.equals(driver.getIsAvailable())) {
                 throw new IllegalStateException("Driver is not available");
             }
+            if (!bookingDispatchService.canDriverAccept(bookingId, driver.getId())) {
+                throw new IllegalStateException("Driver is not the active candidate for this booking");
+            }
 
             booking.setDriver(driver);
             booking.setBookingStatus(BookingStatus.ACCEPTED);
             driver.setIsAvailable(false);
             bookingRepository.save(booking);
             driverRepository.save(driver);
+            bookingDispatchService.markDriverAccepted(bookingId, driver.getId());
             publishEvent(booking, "DRIVER_ASSIGNED", "Driver assigned successfully");
             audit(booking.getId(), "DRIVER_ASSIGNED", "Driver assigned to booking", "DRIVER", driver.getId());
+            notifyPassenger(booking, "DRIVER_ASSIGNED", "Driver assigned", "Your ride has been accepted by a driver.");
             return mapToResponse(booking);
     }
 
@@ -193,6 +209,7 @@ public class BookingServiceImpl implements BookingService {
         TripOtpResponseDto otp = tripOtpService.generateOtp(savedBooking);
         publishEvent(savedBooking, "CAB_ARRIVED", "Driver arrived at pickup location");
         audit(savedBooking.getId(), "CAB_ARRIVED", "Driver marked arrival at pickup", "DRIVER", savedBooking.getDriver() != null ? savedBooking.getDriver().getId() : null);
+        notifyPassenger(savedBooking, "CAB_ARRIVED", "Driver arrived", "Your driver has arrived at the pickup point.");
         UpdateBookingResponseDto response = mapToResponse(savedBooking);
         response.setOtp(otp);
         return response;
@@ -210,6 +227,7 @@ public class BookingServiceImpl implements BookingService {
         Booking savedBooking = bookingRepository.save(booking);
         publishEvent(savedBooking, "TRIP_STARTED", "Trip started");
         audit(savedBooking.getId(), "TRIP_STARTED", "Trip started after OTP verification", "SYSTEM", null);
+        notifyPassenger(savedBooking, "TRIP_STARTED", "Trip started", "Your trip has started.");
         return mapToResponse(savedBooking);
     }
 
@@ -220,6 +238,9 @@ public class BookingServiceImpl implements BookingService {
         if (booking.getBookingStatus() != BookingStatus.TRIP_STARTED && booking.getBookingStatus() != BookingStatus.IN_RIDE) {
             throw new IllegalStateException("Trip can only be completed after it starts");
         }
+        BookingTripMetricsDto tripMetrics = fetchBookingTripMetrics(bookingId);
+        long actualDistanceMeters = resolveActualTripDistance(booking, tripMetrics);
+        double finalFare = calculateFareFromDistanceMeters(actualDistanceMeters);
         booking.setBookingStatus(BookingStatus.COMPLETED);
         booking.setEndTime(LocalDateTime.now());
 
@@ -229,9 +250,11 @@ public class BookingServiceImpl implements BookingService {
             driverRepository.save(driver);
         }
         Booking savedBooking = bookingRepository.save(booking);
-        paymentService.capturePayment(savedBooking.getId());
+        paymentService.capturePayment(savedBooking.getId(), finalFare, actualDistanceMeters);
+        bookingDispatchService.closeDispatch(savedBooking.getId());
         publishEvent(savedBooking, "TRIP_COMPLETED", "Trip completed successfully");
-        audit(savedBooking.getId(), "TRIP_COMPLETED", "Trip completed and payment capture triggered", "SYSTEM", null);
+        audit(savedBooking.getId(), "TRIP_COMPLETED", "Trip completed and payment capture triggered for final fare " + finalFare, "SYSTEM", null);
+        notifyPassenger(savedBooking, "TRIP_COMPLETED", "Trip completed", "Your trip is completed. Final fare: " + finalFare);
         return mapToResponse(savedBooking);
     }
 
@@ -244,6 +267,23 @@ public class BookingServiceImpl implements BookingService {
         }
         if (booking.getBookingStatus() == BookingStatus.TRIP_STARTED || booking.getBookingStatus() == BookingStatus.IN_RIDE) {
             throw new IllegalStateException("Trip already started and cannot be cancelled");
+        }
+        CancelActorType cancelledBy = bookingRequestDto != null && bookingRequestDto.getCancelledBy() != null
+                ? bookingRequestDto.getCancelledBy()
+                : CancelActorType.PASSENGER;
+
+        if (cancelledBy == CancelActorType.DRIVER && booking.getBookingStatus() == BookingStatus.ACCEPTED) {
+            Driver assignedDriver = booking.getDriver();
+            if (assignedDriver != null) {
+                assignedDriver.setIsAvailable(true);
+                driverRepository.save(assignedDriver);
+            }
+            boolean reassigned = bookingDispatchService.reassignAfterDriverCancellation(booking, bookingRequestDto != null ? bookingRequestDto.getCancellationReason() : null);
+            if (reassigned) {
+                Booking reassignedBooking = getBookingEntity(bookingId);
+                publishEvent(reassignedBooking, "DRIVER_CANCELLED_REASSIGNING", "Driver cancelled. Reassigning booking to another driver.");
+                return mapToResponse(reassignedBooking, MIN_CANCELLATION_CHARGE);
+            }
         }
         booking.setPreviousStatus(booking.getBookingStatus());
         booking.setBookingStatus(BookingStatus.CANCELLED);
@@ -262,13 +302,15 @@ public class BookingServiceImpl implements BookingService {
                 System.err.println("Refund failed for booking " + bookingId + ": " + e.getMessage());
             }
         }
+        bookingDispatchService.closeDispatch(savedBooking.getId());
         publishEvent(savedBooking, "BOOKING_CANCELLED", bookingRequestDto != null && bookingRequestDto.getCancellationReason() != null
                 ? bookingRequestDto.getCancellationReason()
                 : "Booking cancelled");
         audit(savedBooking.getId(), "BOOKING_CANCELLED", bookingRequestDto != null && bookingRequestDto.getCancellationReason() != null
                 ? bookingRequestDto.getCancellationReason()
-                : "Booking cancelled", "SYSTEM", null);
-        return mapToResponse(savedBooking, calculateCancellationCharge(savedBooking));
+                : "Booking cancelled", cancelledBy.name(), cancelledBy == CancelActorType.PASSENGER ? savedBooking.getPassenger() != null ? savedBooking.getPassenger().getId() : null : savedBooking.getDriver() != null ? savedBooking.getDriver().getId() : null);
+        notifyPassenger(savedBooking, "BOOKING_CANCELLED", "Booking cancelled", resolveCancellationMessage(cancelledBy, bookingRequestDto != null ? bookingRequestDto.getCancellationReason() : null));
+        return mapToResponse(savedBooking, calculateCancellationCharge(savedBooking, cancelledBy));
     }
 
     @Override
@@ -307,27 +349,96 @@ public class BookingServiceImpl implements BookingService {
         return bookingAuditService.getAuditTrail(bookingId);
     }
 
-
-
-
-    private void raiseRideRequestAsync(RideRequestDto requestDto){
-        Call<Boolean> call=uberSocketApi.raiseRideRequest(requestDto);
-        call.enqueue(new Callback<Boolean>() {
-            @Override
-            public void onResponse(Call<Boolean> call, Response<Boolean> response) {
-                if(response.isSuccessful() && response.body()!=null){
-                    Boolean result= response.body();
-                    System.out.println("Driver response is: "+result.toString());
-                }else{
-                    System.out.println("Request for ride failed: "+response.message());
-                }
-            }
-            @Override
-            public void onFailure(Call<Boolean> call, Throwable t) {
-                 t.printStackTrace();
-            }
-        });
+    @Override
+    @Transactional
+    public UpdateBookingResponseDto rejectDriver(UUID bookingId, DriverDecisionRequestDto requestDto) {
+        boolean reassigned = bookingDispatchService.rejectDriver(bookingId, requestDto.getDriverId(), requestDto.getReason());
+        Booking booking = getBookingEntity(bookingId);
+        if (!reassigned) {
+            return mapToResponse(booking);
+        }
+        booking.setBookingStatus(BookingStatus.ASSIGNING_DRIVER);
+        Booking savedBooking = bookingRepository.save(booking);
+        publishEvent(savedBooking, "DRIVER_REJECTED_REASSIGNING", "Driver rejected request, dispatching next driver");
+        return mapToResponse(savedBooking);
     }
+
+    @Override
+    public BookingTrackingResponseDto getLiveTracking(UUID bookingId) {
+        Booking booking = getBookingEntity(bookingId);
+        Driver driver = booking.getDriver();
+        BookingTripMetricsDto tripMetrics = fetchBookingTripMetrics(bookingId);
+        DriverTrackingDto driverLocation = driver != null ? fetchDriverLocation(driver.getId()) : null;
+        Long actualDistanceMeters = tripMetrics != null ? tripMetrics.getActualDistanceMeters() : null;
+        Long referenceDistanceMeters = actualDistanceMeters != null && actualDistanceMeters > 0
+                ? actualDistanceMeters
+                : booking.getTotalDistance();
+        Double finalFare = referenceDistanceMeters != null ? calculateFareFromDistanceMeters(referenceDistanceMeters) : null;
+
+        return BookingTrackingResponseDto.builder()
+                .bookingId(booking.getId())
+                .bookingStatus(booking.getBookingStatus())
+                .driverId(driver != null ? driver.getId() : null)
+                .passengerId(booking.getPassenger() != null ? booking.getPassenger().getId() : null)
+                .pickupLocation(booking.getStartLocation())
+                .dropLocation(booking.getEndLocation())
+                .driverLocation(driverLocation)
+                .estimatedTripDistanceMeters(booking.getTotalDistance())
+                .actualTripDistanceMeters(actualDistanceMeters)
+                .estimatedFare(calculateEstimatedFare(booking))
+                .finalFare(booking.getBookingStatus() == BookingStatus.COMPLETED ? finalFare : null)
+                .remainingDistanceMeters(calculateRemainingDistanceMeters(booking, driverLocation))
+                .lastDriverUpdateAtEpochMs(driverLocation != null ? driverLocation.getLastUpdatedAtEpochMs() : tripMetrics != null ? tripMetrics.getLastUpdatedAtEpochMs() : null)
+                .build();
+    }
+
+    @Override
+    public PagedResponseDto<UpdateBookingResponseDto> getPassengerBookingHistory(UUID passengerId, BookingStatus status, int page, int size) {
+        return toPagedResponse(bookingRepository.searchBookings(passengerId, null, status, null, null, PageRequest.of(page, size)));
+    }
+
+    @Override
+    public PagedResponseDto<UpdateBookingResponseDto> getDriverBookingHistory(UUID driverId, BookingStatus status, int page, int size) {
+        return toPagedResponse(bookingRepository.searchBookings(null, driverId, status, null, null, PageRequest.of(page, size)));
+    }
+
+    @Override
+    public PagedResponseDto<UpdateBookingResponseDto> searchBookings(UUID passengerId, UUID driverId, BookingStatus status, LocalDateTime from, LocalDateTime to, int page, int size) {
+        return toPagedResponse(bookingRepository.searchBookings(passengerId, driverId, status, from, to, PageRequest.of(page, size)));
+    }
+
+    @Override
+    public AdminBookingReportDto getAdminReport(LocalDateTime from, LocalDateTime to) {
+        LocalDateTime fromDate = from != null ? from : LocalDateTime.now().minusDays(30);
+        LocalDateTime toDate = to != null ? to : LocalDateTime.now();
+        List<org.example.uberbookingservice.entities.RidePayment> payments = ridePaymentRepository.findAllByCreatedAtBetween(fromDate, toDate);
+        double totalRevenue = payments.stream()
+                .filter(payment -> payment.getStatus() == PaymentStatus.CAPTURED)
+                .mapToDouble(payment -> payment.getAmount() == null ? 0.0 : payment.getAmount())
+                .sum();
+        double refundedAmount = payments.stream()
+                .filter(payment -> payment.getStatus() == PaymentStatus.REFUNDED)
+                .mapToDouble(payment -> payment.getAmount() == null ? 0.0 : payment.getAmount())
+                .sum();
+
+        return AdminBookingReportDto.builder()
+                .from(fromDate)
+                .to(toDate)
+                .totalBookings(bookingRepository.countWithinRange(fromDate, toDate))
+                .completedBookings(bookingRepository.countByStatusWithinRange(BookingStatus.COMPLETED, fromDate, toDate))
+                .cancelledBookings(bookingRepository.countByStatusWithinRange(BookingStatus.CANCELLED, fromDate, toDate))
+                .totalRevenue(Math.round(totalRevenue * 100.0) / 100.0)
+                .refundedAmount(Math.round(refundedAmount * 100.0) / 100.0)
+                .build();
+    }
+
+    @Override
+    public List<NotificationDto> getNotifications(UUID recipientId) {
+        return notificationService.getNotifications(recipientId);
+    }
+
+
+
 
     private Booking getBookingEntity(UUID bookingId) {
         return bookingRepository.findById(bookingId)
@@ -341,10 +452,14 @@ public class BookingServiceImpl implements BookingService {
     }
 
     private UpdateBookingResponseDto mapToResponse(Booking booking) {
-        return mapToResponse(booking, calculateCancellationCharge(booking));
+        return mapToResponse(booking, calculateCancellationCharge(booking, CancelActorType.PASSENGER));
     }
 
     private UpdateBookingResponseDto mapToResponse(Booking booking, Double cancellationCharge) {
+        Long actualDistanceMeters = resolveTrackedDistance(booking.getId());
+        Double finalFare = actualDistanceMeters != null && booking.getBookingStatus() == BookingStatus.COMPLETED
+                ? calculateFareFromDistanceMeters(actualDistanceMeters)
+                : null;
         return UpdateBookingResponseDto.builder()
                 .bookingId(booking.getId())
                 .bookingStatus(booking.getBookingStatus())
@@ -353,7 +468,9 @@ public class BookingServiceImpl implements BookingService {
                 .startLocation(booking.getStartLocation())
                 .endLocation(booking.getEndLocation())
                 .totalDistanceMeters(booking.getTotalDistance())
+                .actualDistanceMeters(actualDistanceMeters)
                 .estimatedFare(calculateEstimatedFare(booking))
+                .finalFare(finalFare)
                 .cancellationCharge(cancellationCharge)
                 .paymentStatus(resolvePaymentStatus(booking.getId()))
                 .startTime(booking.getStartTime())
@@ -380,8 +497,16 @@ public class BookingServiceImpl implements BookingService {
         return Math.round((BASE_FARE + distanceKm * PER_KM_FARE) * 100.0) / 100.0;
     }
 
-    private Double calculateCancellationCharge(Booking booking) {
+    private Double calculateFareFromDistanceMeters(Long distanceMeters) {
+        double distanceKm = distanceMeters == null ? 0.0 : distanceMeters / 1000.0;
+        return Math.round((BASE_FARE + distanceKm * PER_KM_FARE) * 100.0) / 100.0;
+    }
+
+    private Double calculateCancellationCharge(Booking booking, CancelActorType actorType) {
         if (booking.getBookingStatus() != BookingStatus.CANCELLED) {
+            return MIN_CANCELLATION_CHARGE;
+        }
+        if (actorType == CancelActorType.SYSTEM || actorType == CancelActorType.ADMIN || actorType == CancelActorType.DRIVER) {
             return MIN_CANCELLATION_CHARGE;
         }
         if (booking.getDriver() == null) {
@@ -424,5 +549,89 @@ public class BookingServiceImpl implements BookingService {
         return ridePaymentRepository.findByBookingId(bookingId)
                 .map(payment -> payment.getStatus())
                 .orElse(PaymentStatus.PENDING);
+    }
+
+    private PagedResponseDto<UpdateBookingResponseDto> toPagedResponse(Page<Booking> page) {
+        return PagedResponseDto.<UpdateBookingResponseDto>builder()
+                .content(page.getContent().stream().map(this::mapToResponse).toList())
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .hasNext(page.hasNext())
+                .build();
+    }
+
+    private void notifyPassenger(Booking booking, String eventType, String title, String message) {
+        if (booking.getPassenger() != null) {
+            notificationService.notifyUser(booking.getPassenger().getId(), booking.getId(), eventType, title, message);
+        }
+    }
+
+    private String resolveCancellationMessage(CancelActorType actorType, String reason) {
+        if (reason != null && !reason.isBlank()) {
+            return reason;
+        }
+        return switch (actorType) {
+            case DRIVER -> "Driver cancelled this ride. We could not complete the booking.";
+            case SYSTEM -> "Booking cancelled by system.";
+            case ADMIN -> "Booking cancelled by admin.";
+            default -> "Booking cancelled.";
+        };
+    }
+
+    private DriverTrackingDto fetchDriverLocation(UUID driverId) {
+        try {
+            Response<DriverTrackingDto> response = locationServiceApi.getDriverLocation(driverId).execute();
+            if (response.isSuccessful()) {
+                return response.body();
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private BookingTripMetricsDto fetchBookingTripMetrics(UUID bookingId) {
+        try {
+            Response<BookingTripMetricsDto> response = locationServiceApi.getBookingTripMetrics(bookingId).execute();
+            if (response.isSuccessful()) {
+                return response.body();
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private Long resolveTrackedDistance(UUID bookingId) {
+        BookingTripMetricsDto tripMetrics = fetchBookingTripMetrics(bookingId);
+        return tripMetrics != null ? tripMetrics.getActualDistanceMeters() : null;
+    }
+
+    private long resolveActualTripDistance(Booking booking, BookingTripMetricsDto tripMetrics) {
+        if (tripMetrics != null && tripMetrics.getActualDistanceMeters() != null && tripMetrics.getActualDistanceMeters() > 0) {
+            return tripMetrics.getActualDistanceMeters();
+        }
+        return booking.getTotalDistance() != null ? booking.getTotalDistance() : 0L;
+    }
+
+    private Double calculateRemainingDistanceMeters(Booking booking, DriverTrackingDto driverLocation) {
+        if (driverLocation == null || driverLocation.getLatitude() == null || driverLocation.getLongitude() == null) {
+            return null;
+        }
+
+        ExactLocation target = booking.getBookingStatus() == BookingStatus.TRIP_STARTED || booking.getBookingStatus() == BookingStatus.IN_RIDE
+                ? booking.getEndLocation()
+                : booking.getStartLocation();
+
+        if (target == null) {
+            return null;
+        }
+
+        ExactLocation currentLocation = ExactLocation.builder()
+                .latitude(driverLocation.getLatitude())
+                .longitude(driverLocation.getLongitude())
+                .build();
+
+        return calculateDistanceMeters(currentLocation, target).doubleValue();
     }
 }

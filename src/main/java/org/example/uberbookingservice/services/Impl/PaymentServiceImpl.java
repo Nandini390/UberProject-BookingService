@@ -2,13 +2,16 @@ package org.example.uberbookingservice.services.Impl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.uberbookingservice.dto.AuthorizePaymentRequestDto;
+import org.example.uberbookingservice.dto.PaymentReconciliationRequestDto;
 import org.example.uberbookingservice.dto.PaymentResponseDto;
 import org.example.uberbookingservice.entities.RidePayment;
 import org.example.uberbookingservice.events.PaymentLifecycleEvent;
 import org.example.uberbookingservice.payments.PaymentMethod;
+import org.example.uberbookingservice.payments.PaymentReconciliationStatus;
 import org.example.uberbookingservice.payments.PaymentStatus;
 import org.example.uberbookingservice.repositories.BookingRepository;
 import org.example.uberbookingservice.repositories.RidePaymentRepository;
+import org.example.uberbookingservice.services.NotificationService;
 import org.example.uberbookingservice.services.PaymentService;
 import org.example.uberprojectentityservice.Models.Booking;
 import org.example.uberprojectentityservice.Models.BookingStatus;
@@ -30,6 +33,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final BookingRepository bookingRepository;
     private final KafkaProducerService kafkaProducerService;
     private final BookingAuditService bookingAuditService;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -44,7 +48,7 @@ public class PaymentServiceImpl implements PaymentService {
                         .paymentMethod(requestDto.getPaymentMethod())
                         .currency(resolveCurrency(requestDto.getCurrency()))
                         .status(PaymentStatus.PENDING)
-                        .providerReference(generateProviderReference(bookingId))
+                        .providerReference(resolveProviderReference(bookingId, requestDto.getExternalReference()))
                         .build());
 
         if (payment.getStatus() == PaymentStatus.CAPTURED || payment.getStatus() == PaymentStatus.REFUNDED) {
@@ -54,22 +58,28 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setCurrency(resolveCurrency(requestDto.getCurrency()));
         payment.setAmount(resolveAmount(booking, requestDto.getAmount()));
         payment.setStatus(PaymentStatus.AUTHORIZED);
+        payment.setProviderName(resolveProviderName(requestDto.getPaymentMethod(), requestDto.getProviderName()));
+        payment.setGatewayTransactionId(requestDto.getExternalReference());
+        payment.setReconciliationStatus(requiresReconciliation(requestDto.getPaymentMethod())
+                ? PaymentReconciliationStatus.PENDING
+                : PaymentReconciliationStatus.NOT_REQUIRED);
         payment.setAuthorizedAt(LocalDateTime.now());
         payment.setFailureReason(null);
 
         RidePayment savedPayment = ridePaymentRepository.save(payment);
         publishPaymentEvent(booking, savedPayment, "PAYMENT_AUTHORIZED", "Payment authorized successfully");
         bookingAuditService.log(bookingId, "PAYMENT_AUTHORIZED", "Payment authorized for booking", "PASSENGER", booking.getPassenger() != null ? booking.getPassenger().getId() : null);
+        notifyPassenger(booking, "PAYMENT_AUTHORIZED", "Payment authorized", "Your payment has been authorized.");
         return mapToResponse(savedPayment);
     }
 
     @Override
     @Transactional
-    public PaymentResponseDto capturePayment(UUID bookingId) {
+    public PaymentResponseDto capturePayment(UUID bookingId, Double finalAmount, Long actualDistanceMeters) {
         Booking booking = getBooking(bookingId);
 
         RidePayment payment = ridePaymentRepository.findByBookingId(bookingId)
-                .orElseGet(() -> createCapturedCashPayment(booking));
+                .orElseGet(() -> createCapturedCashPayment(booking, finalAmount, actualDistanceMeters));
 
         if (payment.getStatus() == PaymentStatus.REFUNDED) {
             throw new IllegalStateException("Refunded payment cannot be captured again");
@@ -78,13 +88,21 @@ public class PaymentServiceImpl implements PaymentService {
             return mapToResponse(payment);
         }
 
+        if (finalAmount != null) {
+            payment.setAmount(finalAmount);
+        }
+        payment.setActualDistanceMeters(actualDistanceMeters);
         payment.setStatus(PaymentStatus.CAPTURED);
+        if (payment.getReconciliationStatus() == PaymentReconciliationStatus.PENDING && payment.getPaymentMethod() == PaymentMethod.CASH) {
+            payment.setReconciliationStatus(PaymentReconciliationStatus.NOT_REQUIRED);
+        }
         payment.setCapturedAt(LocalDateTime.now());
         payment.setFailureReason(null);
         RidePayment savedPayment = ridePaymentRepository.save(payment);
         publishPaymentEvent(booking, savedPayment, "PAYMENT_CAPTURED", "Payment captured successfully");
         bookingAuditService.log(bookingId, "PAYMENT_CAPTURED", "Payment captured for booking", "SYSTEM",
                 booking.getPassenger() != null ? booking.getPassenger().getId() : null);
+        notifyPassenger(booking, "PAYMENT_CAPTURED", "Payment completed", "Your payment has been captured successfully.");
         return mapToResponse(savedPayment);
     }
 
@@ -101,6 +119,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         payment.setStatus(PaymentStatus.REFUNDED);
+        payment.setReconciliationStatus(payment.getPaymentMethod() == PaymentMethod.CASH ? PaymentReconciliationStatus.NOT_REQUIRED : PaymentReconciliationStatus.SUCCESS);
         payment.setRefundedAt(LocalDateTime.now());
         payment.setFailureReason(reason);
         RidePayment savedPayment = ridePaymentRepository.save(payment);
@@ -108,6 +127,7 @@ public class PaymentServiceImpl implements PaymentService {
         publishPaymentEvent(booking, savedPayment, "PAYMENT_REFUNDED", resolvedReason);
         bookingAuditService.log(bookingId, "PAYMENT_REFUNDED", resolvedReason, "SYSTEM",
                 booking.getPassenger() != null ? booking.getPassenger().getId() : null);
+        notifyPassenger(booking, "PAYMENT_REFUNDED", "Payment refunded", resolvedReason);
         return mapToResponse(savedPayment);
     }
 
@@ -116,6 +136,37 @@ public class PaymentServiceImpl implements PaymentService {
         RidePayment payment = ridePaymentRepository.findByBookingId(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("No payment exists for booking " + bookingId));
         return mapToResponse(payment);
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponseDto reconcilePayment(UUID bookingId, PaymentReconciliationRequestDto requestDto) {
+        Booking booking = getBooking(bookingId);
+        RidePayment payment = ridePaymentRepository.findByBookingId(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("No payment exists for booking " + bookingId));
+
+        if (!payment.getProviderReference().equals(requestDto.getProviderReference())) {
+            throw new IllegalArgumentException("Provider reference mismatch for booking " + bookingId);
+        }
+
+        payment.setGatewayTransactionId(requestDto.getGatewayTransactionId());
+        payment.setFailureReason(requestDto.getMessage());
+
+        if (requestDto.getPaymentStatus() == PaymentStatus.FAILED || requestDto.getPaymentStatus() == PaymentStatus.CANCELLED) {
+            payment.setStatus(requestDto.getPaymentStatus());
+            payment.setReconciliationStatus(PaymentReconciliationStatus.FAILED);
+        } else {
+            payment.setStatus(requestDto.getPaymentStatus());
+            payment.setReconciliationStatus(PaymentReconciliationStatus.SUCCESS);
+        }
+
+        RidePayment savedPayment = ridePaymentRepository.save(payment);
+        publishPaymentEvent(booking, savedPayment, "PAYMENT_RECONCILED",
+                requestDto.getMessage() == null || requestDto.getMessage().isBlank() ? "Payment reconciliation updated" : requestDto.getMessage());
+        bookingAuditService.log(bookingId, "PAYMENT_RECONCILED", requestDto.getMessage() == null || requestDto.getMessage().isBlank() ? "Payment reconciliation updated" : requestDto.getMessage(), "SYSTEM",
+                booking.getPassenger() != null ? booking.getPassenger().getId() : null);
+        notifyPassenger(booking, "PAYMENT_RECONCILED", "Payment updated", requestDto.getMessage() == null || requestDto.getMessage().isBlank() ? "Payment reconciliation updated." : requestDto.getMessage());
+        return mapToResponse(savedPayment);
     }
 
     private Booking getBooking(UUID bookingId) {
@@ -139,14 +190,34 @@ public class PaymentServiceImpl implements PaymentService {
         return "PAY-" + bookingId.toString().substring(0, 8).toUpperCase();
     }
 
-    private RidePayment createCapturedCashPayment(Booking booking) {
+    private String resolveProviderReference(UUID bookingId, String externalReference) {
+        return externalReference == null || externalReference.isBlank()
+                ? generateProviderReference(bookingId)
+                : externalReference.trim();
+    }
+
+    private String resolveProviderName(PaymentMethod paymentMethod, String providerName) {
+        if (providerName != null && !providerName.isBlank()) {
+            return providerName.trim().toUpperCase();
+        }
+        return paymentMethod == PaymentMethod.CASH ? "CASH" : "SIMULATED_GATEWAY";
+    }
+
+    private boolean requiresReconciliation(PaymentMethod paymentMethod) {
+        return paymentMethod != PaymentMethod.CASH;
+    }
+
+    private RidePayment createCapturedCashPayment(Booking booking, Double finalAmount, Long actualDistanceMeters) {
         RidePayment payment = RidePayment.builder()
                 .bookingId(booking.getId())
-                .amount(resolveAmount(booking, null))
+                .amount(finalAmount != null ? finalAmount : resolveAmount(booking, null))
+                .actualDistanceMeters(actualDistanceMeters)
                 .currency(DEFAULT_CURRENCY)
                 .paymentMethod(PaymentMethod.CASH)
                 .status(PaymentStatus.CAPTURED)
                 .providerReference(generateProviderReference(booking.getId()))
+                .providerName("CASH")
+                .reconciliationStatus(PaymentReconciliationStatus.NOT_REQUIRED)
                 .capturedAt(LocalDateTime.now())
                 .build();
         return ridePaymentRepository.save(payment);
@@ -157,10 +228,14 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentId(payment.getId())
                 .bookingId(payment.getBookingId())
                 .amount(payment.getAmount())
+                .actualDistanceMeters(payment.getActualDistanceMeters())
                 .currency(payment.getCurrency())
                 .paymentMethod(payment.getPaymentMethod())
                 .paymentStatus(payment.getStatus())
                 .providerReference(payment.getProviderReference())
+                .providerName(payment.getProviderName())
+                .gatewayTransactionId(payment.getGatewayTransactionId())
+                .reconciliationStatus(payment.getReconciliationStatus())
                 .failureReason(payment.getFailureReason())
                 .authorizedAt(payment.getAuthorizedAt())
                 .capturedAt(payment.getCapturedAt())
@@ -180,11 +255,20 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentStatus(payment.getStatus().name())
                 .amount(payment.getAmount())
                 .currency(payment.getCurrency())
+                .reconciliationStatus(payment.getReconciliationStatus() != null ? payment.getReconciliationStatus().name() : null)
                 .eventType(eventType)
                 .source("UberBookingService")
                 .providerReference(payment.getProviderReference())
+                .providerName(payment.getProviderName())
+                .gatewayTransactionId(payment.getGatewayTransactionId())
                 .message(message)
                 .occurredAt(LocalDateTime.now())
                 .build());
+    }
+
+    private void notifyPassenger(Booking booking, String eventType, String title, String message) {
+        if (booking.getPassenger() != null) {
+            notificationService.notifyUser(booking.getPassenger().getId(), booking.getId(), eventType, title, message);
+        }
     }
 }

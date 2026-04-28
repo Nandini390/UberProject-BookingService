@@ -17,9 +17,12 @@ public class PaymentLifecycleEvent {
     private final String paymentStatus;
     private final Double amount;
     private final String currency;
+    private final String reconciliationStatus;
     private final String eventType;
     private final String source;
     private final String providerReference;
+    private final String providerName;
+    private final String gatewayTransactionId;
     private final String message;
     private final LocalDateTime occurredAt;
 }
