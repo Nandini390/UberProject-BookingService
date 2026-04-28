@@ -11,6 +11,7 @@ import org.example.uberbookingservice.dto.VerifyTripOtpRequestDto;
 import org.example.uberbookingservice.services.BookingService;
 import org.example.uberbookingservice.services.Impl.IdempotencyService;
 import org.example.uberbookingservice.services.Impl.WebhookService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -37,17 +38,14 @@ public class BookingController {
     @PostMapping
     public ResponseEntity<CreateBookingResponseDto> CreateBooking(@Valid @RequestBody CreateBookingDto createBookingDto,
                                                                   @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey){
-        Map<String,Object> payload = new HashMap<>();
-        payload.put("passengerId",createBookingDto.getPassengerId());
-        payload.put("Start Location",createBookingDto.getStartLocation());
-        payload.put("End Location",createBookingDto.getEndLocation());
-        String webhookURL = "http://localhost:6700/webhook";
        return idempotencyService.execute(
                "BOOKING_CREATE",
                idempotencyKey,
                () -> {
-                   webhookService.sendWebhook(webhookURL,payload);
-                   return new ResponseEntity<>(bookingService.createBooking(createBookingDto), HttpStatus.CREATED);
+                   CreateBookingResponseDto result = bookingService.createBooking(createBookingDto);
+                   webhookService.sendWebhook("BOOKING_CREATED", result);
+
+                   return new ResponseEntity<>(result, HttpStatus.CREATED);
                },
                CreateBookingResponseDto.class
        );
