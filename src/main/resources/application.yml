@@ -41,3 +41,6 @@ eureka:
 
 webhook:
   url: http://localhost:6700/webhook
+
+server:
+  port: 8089

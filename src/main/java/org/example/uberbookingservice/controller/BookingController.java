@@ -9,6 +9,8 @@ import org.example.uberbookingservice.dto.AdminBookingReportDto;
 import org.example.uberbookingservice.dto.DriverDecisionRequestDto;
 import org.example.uberbookingservice.dto.NotificationDto;
 import org.example.uberbookingservice.dto.PagedResponseDto;
+import org.example.uberbookingservice.dto.CreateReviewRequestDto;
+import org.example.uberbookingservice.dto.ReviewResponseDto;
 import org.example.uberbookingservice.dto.TripOtpResponseDto;
 import org.example.uberbookingservice.dto.UpdateBookingResponseDto;
 import org.example.uberbookingservice.dto.UpdateBookingRequestDto;
@@ -87,6 +89,12 @@ public class BookingController {
     @PostMapping("{bookingId}/complete")
     public ResponseEntity<UpdateBookingResponseDto> completeTrip(@PathVariable UUID bookingId){
         return new ResponseEntity<>(bookingService.completeTrip(bookingId), HttpStatus.OK);
+    }
+
+    @PostMapping("{bookingId}/review")
+    public ResponseEntity<ReviewResponseDto> createReview(@PathVariable UUID bookingId,
+                                                          @Valid @RequestBody CreateReviewRequestDto requestDto) {
+        return new ResponseEntity<>(bookingService.createReview(bookingId, requestDto), HttpStatus.CREATED);
     }
 
     @PostMapping("{bookingId}/cancel")

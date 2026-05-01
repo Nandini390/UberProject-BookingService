@@ -3,6 +3,7 @@ package org.example.uberbookingservice.config;
 import com.netflix.discovery.EurekaClient;
 import okhttp3.OkHttpClient;
 import org.example.uberbookingservice.Apis.LocationServiceApi;
+import org.example.uberbookingservice.Apis.ReviewServiceApi;
 import org.example.uberbookingservice.Apis.UberSocketApi;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -38,5 +39,15 @@ public class RetrofitConfig {
                 .client(new OkHttpClient().newBuilder().build())
                 .build()
                 .create(UberSocketApi.class);
+    }
+
+    @Bean
+    public ReviewServiceApi reviewServiceApi(){
+        return new Retrofit.Builder()
+                .baseUrl(getServiceURL("UBERREVIEWSERVICE"))
+                .addConverterFactory(GsonConverterFactory.create())
+                .client(new OkHttpClient().newBuilder().build())
+                .build()
+                .create(ReviewServiceApi.class);
     }
 }

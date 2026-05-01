@@ -1,6 +1,7 @@
 package org.example.uberbookingservice.services.Impl;
 
 import org.example.uberbookingservice.Apis.LocationServiceApi;
+import org.example.uberbookingservice.Apis.ReviewServiceApi;
 import org.example.uberbookingservice.Apis.UberSocketApi;
 import org.example.uberbookingservice.dto.*;
 import org.example.uberbookingservice.events.BookingLifecycleEvent;
@@ -51,10 +52,11 @@ public class BookingServiceImpl implements BookingService {
     private final BookingDispatchService bookingDispatchService;
     private final BookingDispatchRepository bookingDispatchRepository;
     private final NotificationService notificationService;
+    private final ReviewServiceApi reviewServiceApi;
 
 
     public BookingServiceImpl(PassengerRepository passengerRepository,
-                              BookingRepository bookingRepository, DriverRepository driverRepository, LocationServiceApi locationServiceApi, UberSocketApi uberSocketApi, KafkaProducerService kafkaProducerService, PaymentService paymentService, RidePaymentRepository ridePaymentRepository, BookingAuditService bookingAuditService, TripOtpService tripOtpService, BookingDispatchService bookingDispatchService, BookingDispatchRepository bookingDispatchRepository, NotificationService notificationService){
+                              BookingRepository bookingRepository, DriverRepository driverRepository, LocationServiceApi locationServiceApi, UberSocketApi uberSocketApi, KafkaProducerService kafkaProducerService, PaymentService paymentService, RidePaymentRepository ridePaymentRepository, BookingAuditService bookingAuditService, TripOtpService tripOtpService, BookingDispatchService bookingDispatchService, BookingDispatchRepository bookingDispatchRepository, NotificationService notificationService, ReviewServiceApi reviewServiceApi){
         this.passengerRepository=passengerRepository;
         this.bookingRepository = bookingRepository;
         this.driverRepository=driverRepository;
@@ -68,6 +70,7 @@ public class BookingServiceImpl implements BookingService {
         this.bookingDispatchService = bookingDispatchService;
         this.bookingDispatchRepository = bookingDispatchRepository;
         this.notificationService = notificationService;
+        this.reviewServiceApi = reviewServiceApi;
     }
 
     @Override
@@ -255,6 +258,7 @@ public class BookingServiceImpl implements BookingService {
         publishEvent(savedBooking, "TRIP_COMPLETED", "Trip completed successfully");
         audit(savedBooking.getId(), "TRIP_COMPLETED", "Trip completed and payment capture triggered for final fare " + finalFare, "SYSTEM", null);
         notifyPassenger(savedBooking, "TRIP_COMPLETED", "Trip completed", "Your trip is completed. Final fare: " + finalFare);
+        notifyPassenger(savedBooking, "REVIEW_REQUESTED", "Rate your ride", "Please share your rating and review for this completed ride.");
         return mapToResponse(savedBooking);
     }
 
@@ -435,6 +439,29 @@ public class BookingServiceImpl implements BookingService {
     @Override
     public List<NotificationDto> getNotifications(UUID recipientId) {
         return notificationService.getNotifications(recipientId);
+    }
+
+    @Override
+    public ReviewResponseDto createReview(UUID bookingId, CreateReviewRequestDto requestDto) {
+        Booking booking = getBookingEntity(bookingId);
+        if (booking.getBookingStatus() != BookingStatus.COMPLETED) {
+            throw new IllegalStateException("Review can be created only after booking completion");
+        }
+
+        requestDto.setBookingId(bookingId);
+        try {
+            Response<ReviewResponseDto> response = reviewServiceApi.createReview(requestDto).execute();
+            if (response.isSuccessful() && response.body() != null) {
+                ReviewResponseDto review = response.body();
+                publishEvent(booking, "REVIEW_CREATED", "Passenger submitted a review for the completed trip");
+                audit(bookingId, "REVIEW_CREATED", "Passenger submitted ride review", "PASSENGER",
+                        booking.getPassenger() != null ? booking.getPassenger().getId() : null);
+                return review;
+            }
+            throw new IllegalStateException("Review service rejected the review request");
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to create review for booking " + bookingId + ": " + e.getMessage(), e);
+        }
     }
 
 

@@ -9,6 +9,8 @@ import org.example.uberbookingservice.dto.TripOtpResponseDto;
 import org.example.uberbookingservice.dto.DriverDecisionRequestDto;
 import org.example.uberbookingservice.dto.NotificationDto;
 import org.example.uberbookingservice.dto.PagedResponseDto;
+import org.example.uberbookingservice.dto.CreateReviewRequestDto;
+import org.example.uberbookingservice.dto.ReviewResponseDto;
 import org.example.uberbookingservice.dto.UpdateBookingRequestDto;
 import org.example.uberbookingservice.dto.UpdateBookingResponseDto;
 import org.example.uberprojectentityservice.Models.BookingStatus;
@@ -53,4 +55,6 @@ public interface BookingService {
     AdminBookingReportDto getAdminReport(LocalDateTime from, LocalDateTime to);
 
     List<NotificationDto> getNotifications(UUID recipientId);
+
+    ReviewResponseDto createReview(UUID bookingId, CreateReviewRequestDto requestDto);
 }
