@@ -1,5 +1,6 @@
 package org.example.uberbookingservice.config;
 
+import com.google.gson.*;
 import com.netflix.discovery.EurekaClient;
 import okhttp3.OkHttpClient;
 import org.example.uberbookingservice.Apis.LocationServiceApi;
@@ -11,6 +12,9 @@ import org.springframework.context.annotation.Configuration;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 @Configuration
 public class RetrofitConfig {
 
@@ -21,11 +25,22 @@ public class RetrofitConfig {
        return eurekaClient.getNextServerFromEureka(serviceName,false).getHomePageUrl();
     }
 
+    Gson gson = new GsonBuilder()
+            .registerTypeAdapter(LocalDateTime.class,
+                    (JsonSerializer<LocalDateTime>) (src, type, ctx) -> new JsonPrimitive(src.toString()))
+            .registerTypeAdapter(LocalDateTime.class,
+                    (JsonDeserializer<LocalDateTime>) (json, type, ctx) -> LocalDateTime.parse(json.getAsString()))
+            .registerTypeAdapter(LocalDate.class,
+                    (JsonSerializer<LocalDate>) (src, type, ctx) -> new JsonPrimitive(src.toString()))
+            .registerTypeAdapter(LocalDate.class,
+                    (JsonDeserializer<LocalDate>) (json, type, ctx) -> LocalDate.parse(json.getAsString()))
+            .create();
+
     @Bean
     public LocationServiceApi locationServiceApi(){
         return new Retrofit.Builder()
                 .baseUrl(getServiceURL("UBERPROJECT-LOCATIONSERVICE"))
-                .addConverterFactory(GsonConverterFactory.create())
+                .addConverterFactory(GsonConverterFactory.create(gson))
                 .client(new OkHttpClient().newBuilder().build())
                 .build()
                 .create(LocationServiceApi.class);
@@ -35,7 +50,7 @@ public class RetrofitConfig {
     public UberSocketApi uberSocketApi(){
         return new Retrofit.Builder()
                 .baseUrl(getServiceURL("UBERSOCKETSERVER"))
-                .addConverterFactory(GsonConverterFactory.create())
+                .addConverterFactory(GsonConverterFactory.create(gson))
                 .client(new OkHttpClient().newBuilder().build())
                 .build()
                 .create(UberSocketApi.class);
@@ -45,7 +60,7 @@ public class RetrofitConfig {
     public ReviewServiceApi reviewServiceApi(){
         return new Retrofit.Builder()
                 .baseUrl(getServiceURL("UBERREVIEWSERVICE"))
-                .addConverterFactory(GsonConverterFactory.create())
+                .addConverterFactory(GsonConverterFactory.create(gson))
                 .client(new OkHttpClient().newBuilder().build())
                 .build()
                 .create(ReviewServiceApi.class);
