@@ -7,6 +7,7 @@ import org.example.uberbookingservice.Apis.LocationServiceApi;
 import org.example.uberbookingservice.Apis.ReviewServiceApi;
 import org.example.uberbookingservice.Apis.UberSocketApi;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import retrofit2.Retrofit;
@@ -21,8 +22,28 @@ public class RetrofitConfig {
     @Autowired
     private EurekaClient eurekaClient;
 
-    private String getServiceURL(String serviceName){
-       return eurekaClient.getNextServerFromEureka(serviceName,false).getHomePageUrl();
+    @Value("${services.location.url:http://localhost:7777}")
+    private String locationServiceUrl;
+
+    @Value("${services.socket.url:http://localhost:8222}")
+    private String socketServiceUrl;
+
+    @Value("${services.review.url:http://localhost:8080}")
+    private String reviewServiceUrl;
+
+    private String getServiceURL(String serviceName, String fallbackUrl){
+        try {
+            return normalizeBaseUrl(eurekaClient.getNextServerFromEureka(serviceName,false).getHomePageUrl());
+        } catch (Exception exception) {
+            return normalizeBaseUrl(fallbackUrl);
+        }
+    }
+
+    private String normalizeBaseUrl(String url) {
+        if (url == null || url.isBlank()) {
+            throw new IllegalStateException("Service URL is missing");
+        }
+        return url.endsWith("/") ? url : url + "/";
     }
 
     Gson gson = new GsonBuilder()
@@ -39,7 +60,7 @@ public class RetrofitConfig {
     @Bean
     public LocationServiceApi locationServiceApi(){
         return new Retrofit.Builder()
-                .baseUrl(getServiceURL("UBERPROJECT-LOCATIONSERVICE"))
+                .baseUrl(getServiceURL("UBERPROJECT-LOCATIONSERVICE", locationServiceUrl))
                 .addConverterFactory(GsonConverterFactory.create(gson))
                 .client(new OkHttpClient().newBuilder().build())
                 .build()
@@ -49,7 +70,7 @@ public class RetrofitConfig {
     @Bean
     public UberSocketApi uberSocketApi(){
         return new Retrofit.Builder()
-                .baseUrl(getServiceURL("UBERSOCKETSERVER"))
+                .baseUrl(getServiceURL("UBERSOCKETSERVER", socketServiceUrl))
                 .addConverterFactory(GsonConverterFactory.create(gson))
                 .client(new OkHttpClient().newBuilder().build())
                 .build()
@@ -59,7 +80,7 @@ public class RetrofitConfig {
     @Bean
     public ReviewServiceApi reviewServiceApi(){
         return new Retrofit.Builder()
-                .baseUrl(getServiceURL("UBERREVIEWSERVICE"))
+                .baseUrl(getServiceURL("UBERREVIEWSERVICE", reviewServiceUrl))
                 .addConverterFactory(GsonConverterFactory.create(gson))
                 .client(new OkHttpClient().newBuilder().build())
                 .build()

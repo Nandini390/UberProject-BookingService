@@ -24,6 +24,10 @@ public class PaymentResponseDto {
     private String providerReference;
     private String providerName;
     private String gatewayTransactionId;
+    private String checkoutKey;
+    private String razorpayOrderId;
+    private String razorpayPaymentId;
+    private Integer amountInSubunits;
     private PaymentReconciliationStatus reconciliationStatus;
     private String failureReason;
     private LocalDateTime authorizedAt;

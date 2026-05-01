@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.uberbookingservice.dto.AuthorizePaymentRequestDto;
 import org.example.uberbookingservice.dto.PaymentReconciliationRequestDto;
 import org.example.uberbookingservice.dto.PaymentResponseDto;
+import org.example.uberbookingservice.dto.PaymentVerificationRequestDto;
 import org.example.uberbookingservice.dto.RefundPaymentRequestDto;
 import org.example.uberbookingservice.services.Impl.IdempotencyService;
 import org.example.uberbookingservice.services.PaymentService;
@@ -43,6 +44,20 @@ public class PaymentController {
                 "PAYMENT_CAPTURE_" + bookingId,
                 idempotencyKey,
                 () -> ResponseEntity.ok(paymentService.capturePayment(bookingId, null, null)),
+                PaymentResponseDto.class
+        );
+    }
+
+    @PostMapping("/booking/{bookingId}/verify")
+    public ResponseEntity<PaymentResponseDto> verifyRazorpayPayment(
+            @PathVariable UUID bookingId,
+            @Valid @RequestBody PaymentVerificationRequestDto requestDto,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey
+    ) {
+        return idempotencyService.execute(
+                "PAYMENT_VERIFY_" + bookingId,
+                idempotencyKey,
+                () -> ResponseEntity.ok(paymentService.verifyRazorpayPayment(bookingId, requestDto)),
                 PaymentResponseDto.class
         );
     }

@@ -15,7 +15,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/Uber_Db_Local
     username: root
-    password: ${mysql_password}
+    password: Temp.567
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -41,6 +41,19 @@ eureka:
 
 webhook:
   url: http://localhost:6700/webhook
+
+services:
+  location:
+    url: ${LOCATION_SERVICE_URL:http://localhost:7777}
+  socket:
+    url: ${SOCKET_SERVICE_URL:http://localhost:8222}
+  review:
+    url: ${REVIEW_SERVICE_URL:http://localhost:8080}
+
+razorpay:
+  key-id: ${RAZORPAY_KEY_ID:rzp_test_SkD3wDU1JDngDl}
+  key-secret: ${RAZORPAY_KEY_SECRET:D5QCCQArY7YZYZcTxiPy9Jhk}
+  currency: ${RAZORPAY_CURRENCY:INR}
 
 server:
   port: 8089

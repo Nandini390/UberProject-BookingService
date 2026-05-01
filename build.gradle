@@ -45,6 +45,7 @@ dependencies {
     implementation('com.squareup.retrofit2:converter-gson:2.4.0')
     implementation("org.springframework.cloud:spring-cloud-starter-netflix-eureka-client:5.0.1")
     implementation("org.springframework.kafka:spring-kafka:4.0.3")
+    implementation("com.razorpay:razorpay-java:1.4.8")
 }
 
 tasks.named('test') {

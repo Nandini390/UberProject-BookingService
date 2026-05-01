@@ -1,0 +1,260 @@
+#
+# A fatal error has been detected by the Java Runtime Environment:
+#
+#  EXCEPTION_IN_PAGE_ERROR (0xc0000006) at pc=0x00007ffc82a019a9, pid=29748, tid=19356
+#
+# JRE version:  (21.0.8+12) (build )
+# Java VM: Java HotSpot(TM) 64-Bit Server VM (21.0.8+12-LTS-250, mixed mode, sharing, tiered, compressed oops, compressed class ptrs, g1 gc, windows-amd64)
+# Problematic frame:
+# C  [VCRUNTIME140.dll+0x19a9]
+#
+# No core dump will be written. Minidumps are not enabled by default on client versions of Windows
+#
+#
+
+---------------  S U M M A R Y ------------
+
+Command Line: -Xmx64m -Xms64m -Dorg.gradle.appname=gradlew F:\Java\SpringBoot\UberSpringProject\UberBookingService\\gradle\wrapper\gradle-wrapper.jar compileJava
+
+Host: 12th Gen Intel(R) Core(TM) i7-1260P, 16 cores, 15G,  Windows 11 , 64 bit Build 26100 (10.0.26100.8246)
+Time: Fri May  1 23:13:55 2026 India Standard Time elapsed time: 0.016962 seconds (0d 0h 0m 0s)
+
+---------------  T H R E A D  ---------------
+
+Current thread is native thread
+
+Stack: [0x00000076cf900000,0x00000076cfa00000],  sp=0x00000076cf9ff060,  free space=1020k
+Native frames: (J=compiled Java code, j=interpreted, Vv=VM code, C=native code)
+C  [VCRUNTIME140.dll+0x19a9]
+V  [jvm.dll+0x6efca5]
+V  [jvm.dll+0x6ee8f5]
+V  [jvm.dll+0x6ee471]
+V  [jvm.dll+0x3bc602]
+V  [jvm.dll+0x80a9f5]
+V  [jvm.dll+0x45172e]
+V  [jvm.dll+0x453321]
+C  [jli.dll+0x52a3]
+C  [ucrtbase.dll+0x37b0]
+C  [KERNEL32.DLL+0x2e8d7]
+C  [ntdll.dll+0x8c3fc]
+
+
+siginfo: EXCEPTION_IN_PAGE_ERROR (0xc0000006), writing address 0x000001a540a40000
+
+
+Registers:
+RAX=0x0000000000000000, RBX=0x000001a540a40000, RCX=0x0000000000010000, RDX=0x0000000000000000
+RSP=0x00000076cf9ff060, RBP=0x000001a540a8bc50, RSI=0x000001a540a81a40, RDI=0x000001a540a40000
+R8 =0x0000000000010000, R9 =0x000001a540a40000, R10=0x00007ffc82a00000, R11=0x0000000000000000
+R12=0x00007ffc31768870, R13=0x000001a540a74d40, R14=0x000001a540a7d020, R15=0x0000000000010000
+RIP=0x00007ffc82a019a9, EFLAGS=0x0000000000010202
+
+
+Top of Stack: (sp=0x00000076cf9ff060)
+0x00000076cf9ff060:   0000000000000000 00007ffc317cfca5
+0x00000076cf9ff070:   000001a540a8bc50 000001a500000000
+0x00000076cf9ff080:   000001a540a81a40 00000000000001e8
+0x00000076cf9ff090:   0000000000010000 00000076cf9ff0b0
+0x00000076cf9ff0a0:   00000076cf9ff330 000001a500000104
+0x00000076cf9ff0b0:   0000007600000103 000001a540a8bc54
+0x00000076cf9ff0c0:   000001a500000101 0000000000000000
+0x00000076cf9ff0d0:   00000076cf9ff2d0 00007ffcb7a9cd14
+0x00000076cf9ff0e0:   000001a500000002 0000000000000000
+0x00000076cf9ff0f0:   00007ffc317a6540 000001a557000b5c
+0x00000076cf9ff100:   0000000000000010 0000000000000060
+0x00000076cf9ff110:   00000000005c3a43 000001a540940cc0
+0x00000076cf9ff120:   000001a540941800 0000000000000000
+0x00000076cf9ff130:   0000000000000000 0000000000000000
+0x00000076cf9ff140:   0000000000000060 000001a540a60000
+0x00000076cf9ff150:   0000000000000006 0000000000000040
+0x00000076cf9ff160:   0000000000000058 00007ffcb7a9ce54
+0x00000076cf9ff170:   000001a540940000 0000000000000000
+0x00000076cf9ff180:   0000000000000058 000001a500000000
+0x00000076cf9ff190:   0000000000000001 0000000000000002
+0x00000076cf9ff1a0:   0000000000000008 00007ffcb7a9ce54
+0x00000076cf9ff1b0:   000001a540940000 0000000000000000
+0x00000076cf9ff1c0:   00007ffc31768870 0000000000000058
+0x00000076cf9ff1d0:   00000076cf9ff8b8 00000076cf9ff7c8
+0x00000076cf9ff1e0:   000001a540a74d40 00007ffc31768870
+0x00000076cf9ff1f0:   00007ffcb4b988b0 00007ffcb4a70139
+0x00000076cf9ff200:   000001a540a74d40 0000000000000014
+0x00000076cf9ff210:   0000000000000009 00007ffcb4a70139
+0x00000076cf9ff220:   0000000000000013 00007ffc3179e411
+0x00000076cf9ff230:   0000000000000014 00007ffc00000002
+0x00000076cf9ff240:   0000000000000000 00007ffc3179e411
+0x00000076cf9ff250:   0000000000000009 00007ffc317a04fa 
+
+Instructions: (pc=0x00007ffc82a019a9)
+0x00007ffc82a018a9:   49 03 c8 0f 10 44 11 f0 48 83 e9 10 49 83 e8 10
+0x00007ffc82a018b9:   f6 c1 0f 74 17 48 8b c1 48 83 e1 f0 0f 10 c8 0f
+0x00007ffc82a018c9:   10 04 11 0f 11 08 4c 8b c1 4d 2b c3 4d 8b c8 49
+0x00007ffc82a018d9:   c1 e9 07 74 6f 0f 29 01 eb 14 66 66 66 66 66 0f
+0x00007ffc82a018e9:   1f 84 00 00 00 00 00 0f 29 41 10 0f 29 09 0f 10
+0x00007ffc82a018f9:   44 11 f0 0f 10 4c 11 e0 48 81 e9 80 00 00 00 0f
+0x00007ffc82a01909:   29 41 70 0f 29 49 60 0f 10 44 11 50 0f 10 4c 11
+0x00007ffc82a01919:   40 49 ff c9 0f 29 41 50 0f 29 49 40 0f 10 44 11
+0x00007ffc82a01929:   30 0f 10 4c 11 20 0f 29 41 30 0f 29 49 20 0f 10
+0x00007ffc82a01939:   44 11 10 0f 10 0c 11 75 ae 0f 29 41 10 49 83 e0
+0x00007ffc82a01949:   7f 0f 28 c1 4d 8b c8 49 c1 e9 04 74 1a 66 66 0f
+0x00007ffc82a01959:   1f 84 00 00 00 00 00 0f 11 01 48 83 e9 10 0f 10
+0x00007ffc82a01969:   04 11 49 ff c9 75 f0 49 83 e0 0f 74 08 41 0f 10
+0x00007ffc82a01979:   0a 41 0f 11 0b 0f 11 01 49 8b c3 c3 cc cc cc cc
+0x00007ffc82a01989:   cc cc cc cc cc cc cc cc cc cc cc cc cc 66 66 0f
+0x00007ffc82a01999:   1f 84 00 00 00 00 00 57 8b c2 48 8b f9 49 8b c8
+0x00007ffc82a019a9:   f3 aa 49 8b c1 5f c3 cc cc cc cc cc cc 66 66 0f
+0x00007ffc82a019b9:   1f 84 00 00 00 00 00 48 8b c1 4c 8b c9 4c 8d 15
+0x00007ffc82a019c9:   33 e6 ff ff 0f b6 d2 49 bb 01 01 01 01 01 01 01
+0x00007ffc82a019d9:   01 4c 0f af da 66 49 0f 6e c3 49 83 f8 0f 0f 87
+0x00007ffc82a019e9:   83 00 00 00 0f 1f 00 49 03 c8 47 8b 8c 82 b0 80
+0x00007ffc82a019f9:   01 00 4d 03 ca 41 ff e1 4c 89 59 f1 44 89 59 f9
+0x00007ffc82a01a09:   66 44 89 59 fd 44 88 59 ff c3 4c 89 59 f2 44 89
+0x00007ffc82a01a19:   59 fa 66 44 89 59 fe c3 66 66 66 66 66 66 66 0f
+0x00007ffc82a01a29:   1f 84 00 00 00 00 00 4c 89 59 f3 44 89 59 fb 44
+0x00007ffc82a01a39:   88 59 ff c3 0f 1f 00 4c 89 59 f4 44 89 59 fc c3
+0x00007ffc82a01a49:   4c 89 59 f5 66 44 89 59 fd 44 88 59 ff c3 4c 89
+0x00007ffc82a01a59:   59 f7 44 88 59 ff c3 4c 89 59 f6 66 44 89 59 fe
+0x00007ffc82a01a69:   c3 4c 89 59 f8 c3 90 66 0f 6c c0 49 83 f8 20 77
+0x00007ffc82a01a79:   0c f3 0f 7f 01 f3 42 0f 7f 44 01 f0 c3 83 3d 8b
+0x00007ffc82a01a89:   45 01 00 03 0f 82 dd 01 00 00 4c 3b 05 86 45 01
+0x00007ffc82a01a99:   00 76 16 4c 3b 05 85 45 01 00 77 0d f6 05 10 49 
+
+
+
+---------------  P R O C E S S  ---------------
+
+VM state: not at safepoint (not fully initialized)
+
+VM Mutex/Monitor currently owned by a thread: None
+
+Heap address: 0x0000000000000000, size: 0 MB, Compressed Oops mode: 32-bit
+
+CDS archive(s) mapped at: [0x0000000000000000-0x0000000000000000-0x0000000000000000), size 0, SharedBaseAddress: 0x0000000800000000, ArchiveRelocationMode: 1.
+Narrow klass base: 0x0000000000000000, Narrow klass shift: 0, Narrow klass range: 0x0
+
+GC Precious Log:
+<Not initialized>
+
+Dll operation events (0 events):
+No events
+
+Deoptimization events (0 events):
+No events
+
+Classes loaded (0 events):
+No events
+
+Classes unloaded (0 events):
+No events
+
+Classes redefined (0 events):
+No events
+
+Internal exceptions (0 events):
+No events
+
+ZGC Phase Switch (0 events):
+No events
+
+VM Operations (0 events):
+No events
+
+Events (0 events):
+No events
+
+
+Dynamic libraries:
+0x00007ff7916c0000 - 0x00007ff7916d0000 	F:\Java\JDK\jdk-21_windows-x64_bin\jdk-21.0.8\bin\java.exe
+0x00007ffcb7a80000 - 0x00007ffcb7ce7000 	C:\WINDOWS\SYSTEM32\ntdll.dll
+0x00007ffcb6350000 - 0x00007ffcb6419000 	C:\WINDOWS\System32\KERNEL32.DLL
+0x00007ffcb45a0000 - 0x00007ffcb4994000 	C:\WINDOWS\System32\KERNELBASE.dll
+0x00007ffcb4a60000 - 0x00007ffcb4bab000 	C:\WINDOWS\System32\ucrtbase.dll
+0x00007ffc82a00000 - 0x00007ffc82a1b000 	F:\Java\JDK\jdk-21_windows-x64_bin\jdk-21.0.8\bin\VCRUNTIME140.dll
+0x00007ffc82a20000 - 0x00007ffc82a39000 	F:\Java\JDK\jdk-21_windows-x64_bin\jdk-21.0.8\bin\jli.dll
+0x00007ffcb6290000 - 0x00007ffcb6346000 	C:\WINDOWS\System32\ADVAPI32.dll
+0x00007ffcb7680000 - 0x00007ffcb7729000 	C:\WINDOWS\System32\msvcrt.dll
+0x00007ffcb7730000 - 0x00007ffcb77d7000 	C:\WINDOWS\System32\sechost.dll
+0x00007ffcb7260000 - 0x00007ffcb7378000 	C:\WINDOWS\System32\RPCRT4.dll
+0x00007ffcb5910000 - 0x00007ffcb5ad5000 	C:\WINDOWS\System32\USER32.dll
+0x00007ffcb4350000 - 0x00007ffcb4377000 	C:\WINDOWS\System32\win32u.dll
+0x00007ffcb7380000 - 0x00007ffcb73ab000 	C:\WINDOWS\System32\GDI32.dll
+0x00007ffcb56e0000 - 0x00007ffcb580b000 	C:\WINDOWS\System32\gdi32full.dll
+0x00007ffc986c0000 - 0x00007ffc98953000 	C:\WINDOWS\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.26100.8115_none_3e075c82e3354f9c\COMCTL32.dll
+0x00007ffcb5630000 - 0x00007ffcb56d3000 	C:\WINDOWS\System32\msvcp_win.dll
+0x00007ffca2b60000 - 0x00007ffca2b6b000 	C:\WINDOWS\SYSTEM32\VERSION.dll
+0x00007ffcb6250000 - 0x00007ffcb6282000 	C:\WINDOWS\System32\IMM32.DLL
+0x00007ffcb1040000 - 0x00007ffcb104c000 	F:\Java\JDK\jdk-21_windows-x64_bin\jdk-21.0.8\bin\vcruntime140_1.dll
+0x00007ffc5b280000 - 0x00007ffc5b30e000 	F:\Java\JDK\jdk-21_windows-x64_bin\jdk-21.0.8\bin\msvcp140.dll
+0x00007ffc310e0000 - 0x00007ffc31dfd000 	F:\Java\JDK\jdk-21_windows-x64_bin\jdk-21.0.8\bin\server\jvm.dll
+0x00007ffcb6450000 - 0x00007ffcb64d0000 	C:\WINDOWS\System32\WS2_32.dll
+0x00007ffcb41d0000 - 0x00007ffcb422e000 	C:\WINDOWS\SYSTEM32\POWRPROF.dll
+0x00007ffcb13d0000 - 0x00007ffcb1406000 	C:\WINDOWS\SYSTEM32\WINMM.dll
+0x00007ffcb41b0000 - 0x00007ffcb41c4000 	C:\WINDOWS\SYSTEM32\UMPDC.dll
+0x00007ffcb30e0000 - 0x00007ffcb30fb000 	C:\WINDOWS\SYSTEM32\kernel.appcore.dll
+0x00007ffcb0f80000 - 0x00007ffcb0f8a000 	F:\Java\JDK\jdk-21_windows-x64_bin\jdk-21.0.8\bin\jimage.dll
+0x00007ffcb2450000 - 0x00007ffcb2692000 	C:\WINDOWS\SYSTEM32\DBGHELP.DLL
+0x00007ffcb64f0000 - 0x00007ffcb6872000 	C:\WINDOWS\System32\combase.dll
+0x00007ffcb6880000 - 0x00007ffcb6958000 	C:\WINDOWS\System32\OLEAUT32.dll
+0x00007ffcaf1c0000 - 0x00007ffcaf1fb000 	C:\WINDOWS\SYSTEM32\dbgcore.DLL
+0x00007ffcb44f0000 - 0x00007ffcb4595000 	C:\WINDOWS\System32\bcryptPrimitives.dll
+
+dbghelp: loaded successfully - version: 4.0.5 - missing functions: none
+symbol engine: initialized successfully - sym options: 0x614 - pdb path: .;F:\Java\JDK\jdk-21_windows-x64_bin\jdk-21.0.8\bin;C:\WINDOWS\SYSTEM32;C:\WINDOWS\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.26100.8115_none_3e075c82e3354f9c;F:\Java\JDK\jdk-21_windows-x64_bin\jdk-21.0.8\bin\server
+
+VM Arguments:
+jvm_args: -Xmx64m -Xms64m -Dorg.gradle.appname=gradlew 
+java_command: F:\Java\SpringBoot\UberSpringProject\UberBookingService\\gradle\wrapper\gradle-wrapper.jar compileJava
+java_class_path (initial): F:\Java\SpringBoot\UberSpringProject\UberBookingService\\gradle\wrapper\gradle-wrapper.jar
+Launcher Type: SUN_STANDARD
+
+[Global flags]
+     uint ConcGCThreads                            = 3                                         {product} {ergonomic}
+     uint G1ConcRefinementThreads                  = 13                                        {product} {ergonomic}
+    uintx GCDrainStackTargetSize                   = 64                                        {product} {ergonomic}
+   size_t InitialHeapSize                          = 67108864                                  {product} {command line}
+   size_t MarkStackSize                            = 4194304                                   {product} {ergonomic}
+   size_t MaxHeapSize                              = 67108864                                  {product} {command line}
+   size_t MinHeapSize                              = 67108864                                  {product} {command line}
+    uintx ReservedCodeCacheSize                    = 251658240                              {pd product} {ergonomic}
+     bool SegmentedCodeCache                       = true                                      {product} {ergonomic}
+     bool UseCompressedOops                        = true                           {product lp64_product} {ergonomic}
+     bool UseG1GC                                  = true                                      {product} {ergonomic}
+     bool UseLargePagesIndividualAllocation        = false                                  {pd product} {ergonomic}
+
+Logging:
+Log output configuration:
+ #0: stdout all=warning uptime,level,tags foldmultilines=false
+ #1: stderr all=off uptime,level,tags foldmultilines=false
+
+Environment Variables:
+JAVA_HOME=F:\Java\JDK\jdk-21_windows-x64_bin\jdk-21.0.8
+PATH=C:\Users\nandi\.codex\tmp\arg0\codex-arg0ME8JVR;C:\Program Files (x86)\Common Files\Oracle\Java\java8path;C:\Program Files (x86)\Common Files\Oracle\Java\javapath;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Program Files\dotnet\;C:\Program Files\Git\cmd;F:\Java\JDK\jdk-21_windows-x64_bin\jdk-21.0.8\bin;F:\MinGW\bin;F:\Radis;C:\Program Files\MongoDB\Server\8.2\bin;F:\Node\;C:\ProgramData\chocolatey\bin;C:\ProgramData\chocolatey\lib\maven\apache-maven-3.9.14\bin;C:\Users\nandi\AppData\Local\Programs\Python\Launcher\;C:\Program Files\MySQL\MySQL Shell 8.0\bin\;C:\MinGW\bin;C:\MinGW\mingw32\bin;C:\Users\nandi\AppData\Local\Microsoft\WindowsApps;C:\Users\nandi\AppData\Local\Programs\Microsoft VS Code\bin;C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2024.1.4\bin;F:\MongoDB\MongoDB shell\;F:\Kafka\kafka_2.13-4.2.0\bin;C:\Users\nandi\AppData\Roaming\npm;C:\Users\nandi\AppData\Local\OpenAI\Codex\bin;C:\Program Files\WindowsApps\OpenAI.Codex_26.422.9565.0_x64__2p2nqsd0c76g0\app\resources
+USERNAME=nandi
+SHELL=C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe
+OS=Windows_NT
+PROCESSOR_IDENTIFIER=Intel64 Family 6 Model 154 Stepping 3, GenuineIntel
+TMP=C:\Users\nandi\AppData\Local\Temp
+TEMP=C:\Users\nandi\AppData\Local\Temp
+
+
+
+
+Periodic native trim disabled
+
+---------------  S Y S T E M  ---------------
+
+OS:
+ Windows 11 , 64 bit Build 26100 (10.0.26100.8246)
+OS uptime: 0 days 5:13 hours
+
+CPU: total 16 (initial active 16) 
+Processor Information for all 16 processors :
+  Max Mhz: 2100, Current Mhz: 2100, Mhz Limit: 2100
+
+Memory: 4k page, system-wide physical 16068M (1426M free)
+TotalPageFile size 27902M (AvailPageFile size 533M)
+current process WorkingSet (physical memory assigned to process): 10M, peak: 10M
+current process commit charge ("private bytes"): 3M, peak: 3M
+
+vm_info: Java HotSpot(TM) 64-Bit Server VM (21.0.8+12-LTS-250) for windows-amd64 JRE (21.0.8+12-LTS-250), built on 2025-06-27T08:11:22Z by "mach5one" with MS VC++ 17.6 (VS2022)
+
+END.
